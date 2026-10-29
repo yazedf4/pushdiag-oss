@@ -10,6 +10,20 @@ Owner/core maintainer: [@yazedf4](https://github.com/yazedf4).
 - GitHub CI for automated regression tests and example self-audits.
 - Composite GitHub Action for running the static doctor inside other projects.
 
+## Planned v1.3.0 work (open, not yet shipped)
+
+These issues describe genuine limitations with reproducible acceptance criteria. The project is volunteer-maintained: timelines are not guaranteed.
+
+| Issue | Problem to solve | Status |
+| --- | --- | --- |
+| [#5](https://github.com/yazedf4/pushdiag-oss/issues/5) | Local manifest icon declarations can refer to files that do not exist; resolve safe local paths without claiming remote asset verification. | Open / enhancement |
+| [#6](https://github.com/yazedf4/pushdiag-oss/issues/6) | CI findings need stable structured output and safely escaped optional GitHub annotations. | Open / enhancement |
+| [#7](https://github.com/yazedf4/pushdiag-oss/issues/7) | Markdown reports can be malformed by unescaped input text such as pipes and line breaks. | Open / good first issue |
+| [#2](https://github.com/yazedf4/pushdiag-oss/issues/2) | Lexical Service Worker analysis still cannot verify named/indirect callback call graphs. | Open / enhancement |
+| [#3](https://github.com/yazedf4/pushdiag-oss/issues/3) | Reproducible permissioned physical-device Web Push testing has not yet been performed. | Open / help wanted |
+
+No work is considered complete without a reviewed change and a passing automated test or reproducible validation record.
+
 ## Open work: prioritize verified usefulness
 
 1. Validate against **three permissioned real-world PWAs**, recording only redacted diagnoses and fixes.

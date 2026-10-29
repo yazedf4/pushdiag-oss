@@ -9,6 +9,16 @@
 
 ---
 
+## Try it, report a reproducible finding, or contribute
+
+PushDiag is **free, MIT-licensed, and runs locally with zero third-party npm dependencies**. It performs static diagnostics; a passing scan does **not** prove that a push notification reached a device.
+
+- **Try in 5 minutes:** [Tester guide](./docs/TRY_PUSH_DIAG.md) · [Sample fixtures](./examples/)
+- **Report a reproducible issue:** [Open a bug report](https://github.com/yazedf4/pushdiag-oss/issues/new/choose) (no VAPID private keys, JWTs, subscription endpoints or personal data).
+- **Contribute to v1.3.0:** [Roadmap and scoped issues](./docs/MAINTAINER_ROADMAP.md) · [Beginner-friendly task](https://github.com/yazedf4/pushdiag-oss/issues/7).
+- **Evidence, not hype:** We have no independently verified external adoption or physical-device notification tests yet. See [evidence ledger](./docs/ADOPTION_EVIDENCE.md).
+
+
 ## Why PushDiag OSS?
 
 Existing Web Push libraries (such as `web-push`) focus on **sending** notifications, while playground tools only test basic delivery. Web Push failures can occur—especially on **iOS/iPadOS 16.4+ Home Screen PWAs**, **Android Chrome**, and **Firefox**—and diagnostics must consider several distinct layers:
