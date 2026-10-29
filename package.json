@@ -1,0 +1,61 @@
+{
+  "name": "pushdiag-oss",
+  "version": "1.0.0",
+  "description": "Zero-dependency End-to-End Web Push & PWA Diagnostics Engine, VAPID/RFC 8292 Cryptographic Auditor, Service Worker AST Analyzer, and Interactive Browser Inspector for iOS Safari, Android, and Desktop.",
+  "keywords": [
+    "web-push",
+    "pwa",
+    "vapid",
+    "service-worker",
+    "notifications",
+    "diagnostics",
+    "ios-pwa",
+    "fcm",
+    "apns",
+    "autopush",
+    "cli",
+    "openai"
+  ],
+  "homepage": "https://github.com/yazedf4/pushdiag-oss#readme",
+  "bugs": {
+    "url": "https://github.com/yazedf4/pushdiag-oss/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yazedf4/pushdiag-oss.git"
+  },
+  "license": "MIT",
+  "author": "yazedf4 (https://github.com/yazedf4)",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./diagnostics": "./src/diagnostics.js",
+    "./vapid": "./src/vapid.js",
+    "./manifest": "./src/manifest.js",
+    "./service-worker": "./src/service-worker.js",
+    "./http-analyzer": "./src/http-analyzer.js",
+    "./browser-probe": "./src/browser-probe.js",
+    "./ai-advisor": "./src/ai-advisor.js"
+  },
+  "bin": {
+    "pushdiag": "./src/cli.js"
+  },
+  "files": [
+    "src/",
+    "examples/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "start": "node src/cli.js serve",
+    "doctor": "node src/cli.js doctor --project ./examples",
+    "check": "node src/cli.js check --input ./examples/capabilities.json",
+    "vapid:gen": "node src/cli.js vapid --generate"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

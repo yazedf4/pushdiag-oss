@@ -1,0 +1,23 @@
+{
+  "secureContext": true,
+  "serviceWorker": true,
+  "pushManager": false,
+  "notificationPermission": "default",
+  "manifest": true,
+  "installed": false,
+  "platform": {
+    "isIOS": true,
+    "iosVersion": 17.4,
+    "isStandalone": false
+  },
+  "manifestData": {
+    "name": "Fakkek Murtah PWA",
+    "display": "browser",
+    "icons": [
+      {
+        "src": "/icon-192.png",
+        "sizes": "192x192"
+      }
+    ]
+  }
+}

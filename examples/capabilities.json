@@ -1,0 +1,8 @@
+{
+  "secureContext": true,
+  "serviceWorker": true,
+  "pushManager": true,
+  "notificationPermission": "granted",
+  "manifest": true,
+  "installed": true
+}
