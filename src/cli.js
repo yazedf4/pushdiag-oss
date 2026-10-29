@@ -33,6 +33,15 @@ function getArg(args, flag) {
   return idx >= 0 && args[idx + 1] && !args[idx + 1].startsWith('--') ? args[idx + 1] : null;
 }
 
+function markdownCell(value) {
+  return String(value)
+    .replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, ' ')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/[\\|`*_\[\]~]/g, '\\$&');
+}
+
 function formatMarkdownReport(report) {
   const lines = [
     `# PushDiag OSS Diagnostic Report (v${report.version || '1.0.0'})`,
@@ -44,7 +53,7 @@ function formatMarkdownReport(report) {
   ];
   for (const c of report.checks || []) {
     const icon = c.status === 'pass' ? 'PASS' : c.status === 'warn' ? 'WARN' : 'FAIL';
-    const detail = c.fix ? `${c.message} **Fix:** ${c.fix}` : c.message;
+    const detail = c.fix ? `${markdownCell(c.message)} **Fix:** ${markdownCell(c.fix)}` : markdownCell(c.message);
     lines.push(`| **${icon}** | \`${c.layer || 'core'}\` | \`${c.id}\` | ${detail} |`);
   }
   return lines.join('\n');

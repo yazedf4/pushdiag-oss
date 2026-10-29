@@ -56,6 +56,11 @@ node src/cli.js serve --port 3400
 
 ---
 
+Markdown reports display findings and fixes as literal table text. Line breaks and
+control characters become spaces; Markdown delimiters and HTML are escaped.
+Tables require a Markdown renderer with table support. JSON output keeps the
+original diagnostic text.
+
 ## CLI Commands Reference
 
 ### 1. Full Project Doctor (`pushdiag doctor`)
