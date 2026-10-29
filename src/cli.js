@@ -10,7 +10,7 @@ import { getBrowserProbeScript } from './browser-probe.js';
 import { createDiagnosticServer } from './server.js';
 
 const HELP_TEXT = `
-PushDiag OSS v1.1.0 — Open-Source Web Push & PWA Diagnostics Engine
+PushDiag OSS v1.2.0 — Open-Source Web Push & PWA Diagnostics Engine
 Repository: https://github.com/yazedf4/pushdiag-oss
 
 Usage:

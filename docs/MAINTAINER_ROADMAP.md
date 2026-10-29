@@ -14,7 +14,7 @@ Owner/core maintainer: [@yazedf4](https://github.com/yazedf4).
 
 1. Validate against **three permissioned real-world PWAs**, recording only redacted diagnoses and fixes.
 2. Gather honest feedback from developers who try the CLI/Action; triage bug reports and improve rules.
-3. Improve service worker parsing so heuristics do not imply AST-level certainty.
+3. Continue improving conservative Service Worker analysis beyond lexical tokenization, including helper call graphs; retain no-false-success safeguards.
 4. Build opt-in integration tests against a real push service, with explicit authorization and safe test data.
 5. Document tested iOS/Android behavior without implying delivery guarantees.
 
@@ -23,3 +23,5 @@ Owner/core maintainer: [@yazedf4](https://github.com/yazedf4).
 This repository is new. At publication, **usage, external adoption, npm downloads, outside contributors, and physical-device tests are not established**. Please do not infer those from CI runs or file counts.
 
 Track genuine GitHub activity (issues, PR reviews, releases, adoption reports), publish changelogs, and never create artificial stars or activity.
+
+See [tester onboarding](./TRY_PUSH_DIAG.md), [real-device validation protocol](./REAL_DEVICE_TEST_PROTOCOL.md) and [public evidence ledger](./ADOPTION_EVIDENCE.md).

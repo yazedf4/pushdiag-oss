@@ -11,7 +11,7 @@
 
 ## Why PushDiag OSS?
 
-Existing Web Push libraries (such as `web-push`) focus on **sending** notifications, while playground tools only test basic delivery. Yet in production—especially on **iOS/iPadOS 16.4+ Home Screen PWAs**, **Android Chrome**, and **Firefox**—notifications frequently fail silently across five distinct layers:
+Existing Web Push libraries (such as `web-push`) focus on **sending** notifications, while playground tools only test basic delivery. Web Push failures can occur—especially on **iOS/iPadOS 16.4+ Home Screen PWAs**, **Android Chrome**, and **Firefox**—and diagnostics must consider several distinct layers:
 
 1. **Client & PWA Environment Layer**: Missing HTTPS, unrequested user gesture permissions, or iOS Safari running in a regular browser tab instead of `display: standalone` Home Screen mode.
 2. **Web App Manifest Layer**: Missing `"display": "standalone"`, missing `start_url`, or incomplete icon matrices (`192x192` / `512x512`).
@@ -28,6 +28,9 @@ Existing Web Push libraries (such as `web-push`) focus on **sending** notificati
 Requires **Node.js 20+**. No `npm install` of third-party packages is needed!
 
 ```bash
+git clone https://github.com/yazedf4/pushdiag-oss.git
+cd pushdiag-oss
+
 # 1. Run the automated test suite
 npm test
 
@@ -80,7 +83,7 @@ node src/cli.js http --status 403 --endpoint "https://web.push.apple.com/QHabc12
 ```
 
 ### 6. Live Browser Probe (`pushdiag probe`)
-Outputs a self-contained JavaScript snippet you can paste into Mobile Safari / Chrome DevTools (or load via `<script src="http://localhost:3400/probe.js">`) to extract live browser capabilities:
+Outputs a self-contained JavaScript snippet you can paste into the DevTools console of a browser you control to read current capabilities. The localhost server does not make remote mobile browsers automatically reachable:
 
 ```bash
 node src/cli.js probe
@@ -98,7 +101,7 @@ import {
   auditManifest,
   analyzeServiceWorker,
   interpretPushHttpResponse
-} from 'pushdiag-oss';
+} from './src/index.js'; // When running a script inside a cloned repository
 
 const keys = generateVapidKeys();
 const report = diagnose({
@@ -126,7 +129,7 @@ Created and maintained by **[yazedf4](https://github.com/yazedf4)** under the [M
 - `doctor` audits project files. It **never** assumes a real browser supports Web Push when no capability snapshot exists.
 - The `jwt` command checks ES256 signatures **only** when a public VAPID key is supplied (or included in `vapid t=..., k=...`). Without the key, it reports an unverified signature and `valid: false`.
 - HTTP 201/202 from a push service confirms acceptance, **not** display on the recipient's device. This toolkit does not independently verify delivery.
-- Static service worker inspection is heuristic, not an AST parser or runtime execution proof.
+- Service Worker inspection tokenizes source to locate inline push callbacks and avoid unrelated-code false positives. It is **not** a full JS parser, call-graph validator, or runtime proof; indirect handlers return warnings when uncertain.
 - `serve` is bound to `127.0.0.1`, with cross-origin requests disabled. Do not expose it to a public network or reverse proxy.
 - Never paste a private VAPID key, JWT, or subscription endpoint into an issue or publicly shared report.
 
@@ -141,7 +144,7 @@ node src/cli.js check --input ./examples/ios-broken-pwa.json --strict
 node src/cli.js doctor --project /path/to/your/pwa --strict
 ```
 
-See [security policy](./SECURITY.md) and [contribution guide](./CONTRIBUTING.md). No real-world adoption or cross-device notification delivery is claimed without published evidence.
+See [security policy](./SECURITY.md), [contribution guide](./CONTRIBUTING.md), and **[five-minute tester guide](./docs/TRY_PUSH_DIAG.md)**. Independent adoption and cross-device notification delivery are not claimed without published evidence. See also the [usage evidence ledger](./docs/ADOPTION_EVIDENCE.md) and [competitor notes](./docs/COMPETITIVE_POSITION.md).
 
 ## Use in GitHub Actions (no npm registry required)
 

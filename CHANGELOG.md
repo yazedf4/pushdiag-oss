@@ -13,10 +13,17 @@
 ## [0.1.0] - Initial Prototype
 - Basic 6-rule capability JSON snapshot checker.
 
-## Unreleased — v1.1.0 candidate
+## [1.1.0] - 2026-10-29
 
 - Verify ES256 JWT signatures against VAPID public keys and explicitly report unverified tokens.
 - Prevent the project doctor from fabricating browser capability results.
 - Support common public/ layouts for static PWA files.
 - Restrict local diagnostic server access and cap JSON request bodies.
 - Add regression tests and clarify validation-versus-delivery limitations.
+
+## [1.2.0] - 2026-10-29
+
+- Replace broad Service Worker regex matches with callback-scoped lexical checks; stop claiming waitUntil/showNotification successes based on comments or unrelated listeners.
+- Add 7 regression tests for misleading source, minified syntax and conservative handling of indirect listeners.
+- Publish a permissioned test protocol, tester onboarding, competitor comparison, and a transparent adoption evidence ledger.
+- Clarify development and deployment commands, including that the npm package has not been published.
