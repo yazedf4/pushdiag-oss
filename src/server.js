@@ -109,7 +109,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
   <header>
     <div class="brand">
       <h1 style="margin:0;font-size:1.35rem;">PushDiag OSS</h1>
-      <span class="badge">v1.1.0 · Zero-Dependency Diagnostics</span>
+      <span class="badge">v1.2.0 · Zero-Dependency Diagnostics</span>
     </div>
     <div style="color:var(--muted);font-size:0.88rem;">github.com/yazedf4/pushdiag-oss</div>
   </header>

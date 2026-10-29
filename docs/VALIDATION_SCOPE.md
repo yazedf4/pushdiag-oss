@@ -18,7 +18,7 @@ Use a supported physical device and a real push provider to establish actual not
 
 ## Limits and future work
 
-- Service Worker scan currently uses regex heuristics, not an AST, and may miss equivalent JavaScript implementations.
+- Service Worker scanning uses a limited lexical tokenizer to identify inline listener callbacks. It is not an AST or call-graph parser: named handlers, imported helpers, template-interpolated code, dynamic listener registration and complex syntax can be uncertain. The tool must warn rather than claim a verified pass when it cannot establish scope.
 - Browser probe is read-only; it does not request notification permission or subscribe to pushes.
 - No automated real-device/browser push-delivery tests are included.
 - Development/runtime support should be validated on supported Node versions and actual devices before claims of compatibility.

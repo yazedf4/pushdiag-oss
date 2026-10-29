@@ -16,5 +16,9 @@ node src/cli.js doctor --project ./examples
 ## Pull Request Checklist
 
 - Ensure all tests pass (`npm test`).
-- Add unit tests in `test/diagnostics.test.js` for any new diagnostic rule or browser quirk.
+- Add unit tests in `test/*.test.js` for any new diagnostic rule or browser quirk.
 - Keep all modules dependency-free using standard Node.js built-ins (`node:crypto`, `node:fs`, `node:http`, `node:test`).
+
+## Volunteer field reports
+
+See [how to test](./docs/TRY_PUSH_DIAG.md) and [the privacy-aware protocol](./docs/REAL_DEVICE_TEST_PROTOCOL.md). Please submit only a synthetic reproduction, not real secrets or private code.
