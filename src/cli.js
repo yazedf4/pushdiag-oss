@@ -10,14 +10,14 @@ import { getBrowserProbeScript } from './browser-probe.js';
 import { createDiagnosticServer } from './server.js';
 
 const HELP_TEXT = `
-PushDiag OSS v1.0.0 — Open-Source Web Push & PWA Diagnostics Engine
+PushDiag OSS v1.1.0 — Open-Source Web Push & PWA Diagnostics Engine
 Repository: https://github.com/yazedf4/pushdiag-oss
 
 Usage:
   pushdiag [check] --input <capabilities.json> [--strict] [--markdown]
   pushdiag doctor  --project <dir> [--strict] [--markdown]
   pushdiag vapid   [--generate] [--public-key <key>] [--private-key <key>] [--subject <uri>]
-  pushdiag jwt     --token <jwt-or-auth-header> [--endpoint <push-url>]
+  pushdiag jwt     --token <jwt-or-auth-header> [--endpoint <push-url>] [--public-key <key>]
   pushdiag manifest --file <manifest.json> [--strict]
   pushdiag sw      --file <service-worker.js> [--strict]
   pushdiag http    --status <code > [--endpoint <url>] [--ttl <seconds>]
@@ -101,7 +101,8 @@ async function main() {
     if (subcommand === 'jwt') {
       const token = getArg(args, '--token');
       const endpoint = getArg(args, '--endpoint');
-      const report = inspectVapidJwt({ token, endpoint });
+      const publicKey = getArg(args, '--public-key');
+      const report = inspectVapidJwt({ token, endpoint, publicKey });
       console.log(JSON.stringify(report, null, 2));
       if (strict && !report.valid) process.exitCode = 1;
       return;
@@ -152,30 +153,33 @@ async function main() {
 
     if (subcommand === 'doctor') {
       const projectDir = getArg(args, '--project') || '.';
-      const capFile = path.join(projectDir, 'capabilities.json');
-      const manifestFile = path.join(projectDir, 'manifest.json');
-      const swFile = path.join(projectDir, 'sw.js');
-
-      let snapshot = {
-        secureContext: true,
-        serviceWorker: true,
-        pushManager: true,
-        notificationPermission: 'granted',
-        manifest: true,
-        installed: true
+      // Static project inspection must never fake a live browser capability pass.
+      // Accept common PWA layouts while keeping diagnostic inputs explicit.
+      const locate = async paths => {
+        for (const rel of paths) {
+          const candidate = path.join(projectDir, rel);
+          if (await fileExists(candidate)) return candidate;
+        }
+        return null;
       };
-
-      if (await fileExists(capFile)) {
-        snapshot = JSON.parse(await readFile(capFile, 'utf8'));
+      const capFile = await locate(['capabilities.json']);
+      const manifestFile = await locate(['manifest.json', 'manifest.webmanifest', 'public/manifest.json', 'public/manifest.webmanifest']);
+      const swFile = await locate(['sw.js', 'service-worker.js', 'public/sw.js', 'public/service-worker.js', 'src/sw.js', 'src/service-worker.js']);
+      if (!capFile && !manifestFile && !swFile) {
+        console.error('No manifest, service worker, or capability snapshot found. Try --project <path>.');
+        process.exitCode = 2;
+        return;
       }
-      if (await fileExists(manifestFile)) {
-        snapshot.manifestData = JSON.parse(await readFile(manifestFile, 'utf8'));
-      }
-      if (await fileExists(swFile)) {
-        snapshot.serviceWorkerCode = await readFile(swFile, 'utf8');
-      }
-
+      const snapshot = capFile
+        ? JSON.parse(await readFile(capFile, 'utf8'))
+        : { skipCapabilities: true };
+      if (manifestFile) snapshot.manifestData = JSON.parse(await readFile(manifestFile, 'utf8'));
+      if (swFile) snapshot.serviceWorkerCode = await readFile(swFile, 'utf8');
       const report = diagnose(snapshot);
+      report.inputs = { capabilities: capFile, manifest: manifestFile, serviceWorker: swFile };
+      report.disclaimer = capFile
+        ? 'Capability snapshot comes from a file, not a live browser check; passing tests never prove push delivery.'
+        : 'Static-file audit only. Live browser capabilities and push delivery were not tested.';
       console.log(asMarkdown ? formatMarkdownReport(report) : JSON.stringify(report, null, 2));
       if (strict && report.summary.failed > 0) process.exitCode = 1;
       return;
@@ -184,7 +188,7 @@ async function main() {
     if (subcommand === 'serve') {
       const port = Number(getArg(args, '--port') || 3400);
       const server = createDiagnosticServer();
-      server.listen(port, () => {
+      server.listen(port, '127.0.0.1', () => {
         console.log(`PushDiag OSS Interactive Dashboard listening on http://localhost:${port}`);
       });
       return;

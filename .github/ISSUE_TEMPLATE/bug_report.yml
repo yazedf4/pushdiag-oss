@@ -1,0 +1,26 @@
+name: Bug report (redacted reproduction)
+description: Report a reproducible PushDiag diagnosis error without exposing secrets.
+title: 'bug: '
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: "Do not paste VAPID private keys, JWTs, push subscription endpoints, or personal data. Use GitHub Security Advisories for security disclosures."
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Include a minimal, secret-free fixture and exact CLI command.
+      placeholder: 'node src/cli.js doctor --project ./fixtures'
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected versus actual
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS / Node.js / browser (if relevant)

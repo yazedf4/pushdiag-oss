@@ -1,7 +1,7 @@
 {
   "name": "pushdiag-oss",
-  "version": "1.0.0",
-  "description": "Zero-dependency End-to-End Web Push & PWA Diagnostics Engine, VAPID/RFC 8292 Cryptographic Auditor, Service Worker AST Analyzer, and Interactive Browser Inspector for iOS Safari, Android, and Desktop.",
+  "version": "1.1.0",
+  "description": "Zero-dependency, local-first Web Push diagnostics for VAPID JWT signatures, PWA manifests, Service Workers and push HTTP responses.",
   "keywords": [
     "web-push",
     "pwa",

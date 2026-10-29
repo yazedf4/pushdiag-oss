@@ -12,3 +12,11 @@
 
 ## [0.1.0] - Initial Prototype
 - Basic 6-rule capability JSON snapshot checker.
+
+## Unreleased — v1.1.0 candidate
+
+- Verify ES256 JWT signatures against VAPID public keys and explicitly report unverified tokens.
+- Prevent the project doctor from fabricating browser capability results.
+- Support common public/ layouts for static PWA files.
+- Restrict local diagnostic server access and cap JSON request bodies.
+- Add regression tests and clarify validation-versus-delivery limitations.

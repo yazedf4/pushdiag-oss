@@ -193,7 +193,7 @@ export function inspectVapidKeys({ publicKey, privateKey, subject } = {}) {
 /**
  * Inspects a RFC 8292 VAPID Authorization header or JWT token against an endpoint URL.
  */
-export function inspectVapidJwt({ token, endpoint, nowEpochSeconds = Math.floor(Date.now() / 1000) } = {}) {
+export function inspectVapidJwt({ token, endpoint, publicKey, nowEpochSeconds = Math.floor(Date.now() / 1000) } = {}) {
   const checks = [];
   const add = (id, status, severity, message, fix = null) => {
     checks.push({ id, layer: 'vapid-jwt', status, severity, message, fix });
@@ -205,9 +205,11 @@ export function inspectVapidJwt({ token, endpoint, nowEpochSeconds = Math.floor(
   }
 
   let rawJwt = token.trim();
+  let verifiedSignature = false;
   const vapidHeaderMatch = rawJwt.match(/^vapid\s+t=([^,\s]+)\s*,\s*k=([^,\s]+)$/i);
   if (vapidHeaderMatch) {
     rawJwt = vapidHeaderMatch[1];
+    publicKey = publicKey || vapidHeaderMatch[2];
     add('auth-header-scheme', 'pass', 'info', 'Authorization header matches RFC 8292 `vapid t=<jwt>, k=<key>` scheme.');
   }
 
@@ -220,6 +222,38 @@ export function inspectVapidJwt({ token, endpoint, nowEpochSeconds = Math.floor(
   try {
     const header = JSON.parse(fromBase64Url(parts[0]).toString('utf8'));
     const payload = JSON.parse(fromBase64Url(parts[1]).toString('utf8'));
+
+    // Claims can be well formed while the signature is forged. Never call a JWT
+    // cryptographically valid without verifying its ES256 JWS signature.
+    if (!publicKey) {
+      add('jwt-signature', 'warn', 'high', 'JWT signature NOT verified: no public key supplied.',
+        'Pass --public-key <VAPID_PUBLIC_KEY> or an Authorization header with k=<key>.');
+    } else {
+      try {
+        const pub = fromBase64Url(publicKey);
+        const signature = fromBase64Url(parts[2]);
+        if (pub.length !== 65 || pub[0] !== 4 || signature.length !== 64) {
+          throw new Error('Expected a 65-byte uncompressed P-256 key and 64-byte JWS ES256 signature.');
+        }
+        const key = crypto.createPublicKey({
+          key: {
+            kty: 'EC', crv: 'P-256',
+            x: toBase64Url(pub.subarray(1, 33)),
+            y: toBase64Url(pub.subarray(33, 65))
+          },
+          format: 'jwk'
+        });
+        verifiedSignature = crypto.verify('sha256', Buffer.from(`${parts[0]}.${parts[1]}`),
+          { key, dsaEncoding: 'ieee-p1363' }, signature);
+        add('jwt-signature', verifiedSignature ? 'pass' : 'fail',
+          verifiedSignature ? 'info' : 'critical',
+          verifiedSignature ? 'ES256 signature verified against supplied VAPID public key.' : 'ES256 signature verification FAILED.',
+          verifiedSignature ? null : 'Ensure the VAPID public key matches the private signing key and that JWT bytes were not changed.');
+      } catch (err) {
+        add('jwt-signature', 'fail', 'critical', `Signature verification failed: ${err.message}`,
+          'Supply a valid uncompressed P-256 public key and a correctly signed ES256 JWT.');
+      }
+    }
 
     if (header.alg === 'ES256') {
       add('jwt-alg', 'pass', 'info', 'JWT header uses mandatory ES256 (ECDSA P-256 + SHA-256) algorithm.');
@@ -269,8 +303,9 @@ export function inspectVapidJwt({ token, endpoint, nowEpochSeconds = Math.floor(
 
   const passed = checks.filter(c => c.status === 'pass').length;
   return {
-    valid: checks.every(c => c.status === 'pass'),
-    summary: { passed, failed: checks.length - passed, total: checks.length },
+    valid: verifiedSignature && checks.every(c => c.status === 'pass'),
+    signatureVerified: verifiedSignature,
+    summary: { passed, failed: checks.filter(c => c.status === 'fail').length, warnings: checks.filter(c => c.status === 'warn').length, total: checks.length },
     checks
   };
 }

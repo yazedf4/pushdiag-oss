@@ -6,6 +6,7 @@ import { analyzeServiceWorker } from './service-worker.js';
 import { interpretPushHttpResponse, classifyPushEndpoint } from './http-analyzer.js';
 import { getBrowserProbeScript } from './browser-probe.js';
 
+// This dashboard is for localhost use only. It is not an authenticated hosted service.
 const DASHBOARD_HTML = `<!DOCTYPE html>
 <html lang="en" dir="ltr">
 <head>
@@ -108,7 +109,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
   <header>
     <div class="brand">
       <h1 style="margin:0;font-size:1.35rem;">PushDiag OSS</h1>
-      <span class="badge">v1.0.0 · Zero-Dependency Diagnostics</span>
+      <span class="badge">v1.1.0 · Zero-Dependency Diagnostics</span>
     </div>
     <div style="color:var(--muted);font-size:0.88rem;">github.com/yazedf4/pushdiag-oss</div>
   </header>
@@ -156,7 +157,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     }
 
     async function generateVapid() {
-      const res = await fetch('/api/vapid/generate');
+      const res = await fetch('/api/vapid/generate', { method: 'POST' });
       const keys = await res.json();
       document.getElementById('outputBox').textContent = JSON.stringify(keys, null, 2);
     }
@@ -179,14 +180,21 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
 export function createDiagnosticServer() {
   return http.createServer(async (req, res) => {
     const url = new URL(req.url || '/', 'http://localhost');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    // Reject DNS rebinding and malicious cross-origin requests to localhost.
+    const host = req.headers.host || '';
+    if (!/^(localhost|127\.0\.0\.1|\[::1\])(?::\d{1,5})?$/.test(host)) {
+      res.writeHead(403); res.end('Local access only'); return;
+    }
+    const origin = req.headers.origin;
+    if (origin && origin !== `http://${host}`) {
+      res.writeHead(403); res.end('Cross-origin requests are disabled'); return;
+    }
     if (req.method === 'OPTIONS') {
-      res.writeHead(204);
-      res.end();
-      return;
+      res.writeHead(204); res.end(); return;
     }
 
     const sendJson = (code, data) => {
@@ -194,21 +202,31 @@ export function createDiagnosticServer() {
       res.end(JSON.stringify(data, null, 2));
     };
 
-    const readJsonBody = () =>
-      new Promise((resolve, reject) => {
-        let raw = '';
-        req.on('data', chunk => {
-          raw += chunk;
-          if (raw.length > 1e6) reject(new Error('Payload too large'));
-        });
-        req.on('end', () => {
-          try {
-            resolve(raw ? JSON.parse(raw) : {});
-          } catch (e) {
-            reject(e);
-          }
-        });
-      });
+    const readJsonBody = async () => {
+      if (!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] || '')) {
+        const error = new Error('Content-Type must be application/json');
+        error.statusCode = 415;
+        throw error;
+      }
+      const chunks = [];
+      let size = 0;
+      for await (const chunk of req) {
+        size += chunk.length;
+        if (size > 256 * 1024) {
+          const error = new Error('JSON payload exceeds 256 KiB');
+          error.statusCode = 413;
+          throw error;
+        }
+        chunks.push(chunk);
+      }
+      try {
+        return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      } catch {
+        const error = new Error('Invalid JSON body');
+        error.statusCode = 400;
+        throw error;
+      }
+    };
 
     try {
       if (req.method === 'GET' && url.pathname === '/') {
@@ -217,16 +235,16 @@ export function createDiagnosticServer() {
         return;
       }
       if (req.method === 'GET' && url.pathname === '/api/health') {
-        sendJson(200, { status: 'ok', version: '1.0.0', service: 'pushdiag-oss' });
+        sendJson(200, { status: 'ok', version: '1.1.0', service: 'pushdiag-oss' });
         return;
       }
-      if (req.method === 'GET' && url.pathname === '/api/vapid/generate') {
+      if (req.method === 'POST' && url.pathname === '/api/vapid/generate') {
         sendJson(200, generateVapidKeys());
         return;
       }
       if (req.method === 'GET' && url.pathname === '/probe.js') {
         res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
-        res.end(getBrowserProbeScript({ postbackUrl: `${url.origin}/api/diagnose` }));
+        res.end(getBrowserProbeScript());
         return;
       }
       if (req.method === 'POST' && url.pathname === '/api/diagnose') {
@@ -246,7 +264,7 @@ export function createDiagnosticServer() {
       }
       sendJson(404, { error: 'Not Found' });
     } catch (err) {
-      sendJson(400, { error: err.message });
+      sendJson(err.statusCode || 400, { error: err.message });
     }
   });
 }
