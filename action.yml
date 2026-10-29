@@ -1,0 +1,32 @@
+name: 'PushDiag OSS — PWA / Web Push Static Doctor'
+description: 'Audit PWA manifests and service workers in CI without external dependencies or network probes.'
+author: 'yazedf4'
+branding:
+  icon: 'check-circle'
+  color: 'green'
+inputs:
+  project:
+    description: 'Directory containing manifest, service worker, and optional capability snapshot.'
+    required: false
+    default: '.'
+  strict:
+    description: 'Fail the workflow when a diagnostic check fails.'
+    required: false
+    default: 'true'
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - name: Audit project
+      shell: bash
+      env:
+        PUSHDIAG_PROJECT: ${{ inputs.project }}
+        PUSHDIAG_STRICT: ${{ inputs.strict }}
+      run: |
+        set -euo pipefail
+        cmd=(node "${{ github.action_path }}/src/cli.js" doctor --project "$PUSHDIAG_PROJECT" --markdown)
+        if [[ "$PUSHDIAG_STRICT" == 'true' ]]; then cmd+=(--strict); fi
+        "${cmd[@]}" | tee -a "$GITHUB_STEP_SUMMARY"

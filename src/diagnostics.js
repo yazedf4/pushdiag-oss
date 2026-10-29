@@ -5,7 +5,7 @@ import { interpretPushHttpResponse } from './http-analyzer.js';
 import { buildRemediationPlan } from './ai-advisor.js';
 
 /**
- * PushDiag OSS — Unified Multi-Layer Web Push Diagnostics Engine (v1.0.0)
+ * PushDiag OSS — Unified Multi-Layer Web Push Diagnostics Engine (v1.1.0)
  * Backward-compatible with v0.1.0 `diagnose()` signature while supporting full-stack audits:
  * Layer 1: Client Capabilities & iOS/Android PWA Environment
  * Layer 2: Web App Manifest Compliance
@@ -26,7 +26,8 @@ export function diagnose(input = {}) {
     manifestData,
     serviceWorkerCode,
     vapid,
-    httpDelivery
+    httpDelivery,
+    skipCapabilities = false
   } = input;
 
   const checks = [];
@@ -42,6 +43,7 @@ export function diagnose(input = {}) {
     });
   };
 
+  if (!skipCapabilities) {
   // Layer 1: Core Browser Capabilities (v0.1.0 compatible + iOS 16.4+ aware)
   add(
     'secure-context',
@@ -124,6 +126,8 @@ export function diagnose(input = {}) {
     }
   }
 
+  }
+
   // Layer 2: Deep Manifest Inspection (optional when manifestData is provided)
   if (manifestData) {
     const manifestReport = auditManifest(manifestData);
@@ -161,7 +165,7 @@ export function diagnose(input = {}) {
   const failed = checks.filter(c => c.status === 'fail').length;
 
   const baseReport = {
-    version: '1.0.0',
+    version: '1.1.0',
     checks,
     summary: {
       passed,

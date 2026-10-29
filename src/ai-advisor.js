@@ -1,5 +1,5 @@
 /**
- * PushDiag OSS — Deterministic Root-Cause Synthesizer & Optional OpenAI Codex Remediation Engine
+ * PushDiag OSS — Deterministic Root-Cause Synthesizer & Optional OpenAI Remediation Suggestion Engine
  * Works 100% offline with zero dependencies using its built-in rule synthesizer,
  * and optionally connects to OpenAI Responses API when OPENAI_API_KEY is present.
  */
@@ -37,7 +37,7 @@ export function buildRemediationPlan(report) {
 }
 
 /**
- * Optional OpenAI API integration for automated patch generation (used in CI/CD or Maintainer workflows).
+ * Optional OpenAI API integration for patch suggestions. Never automatically applies generated changes.
  */
 export async function requestOpenAiPatch({ report, apiKey = process.env.OPENAI_API_KEY, model = 'gpt-4o-mini' } = {}) {
   const plan = buildRemediationPlan(report);
@@ -45,7 +45,7 @@ export async function requestOpenAiPatch({ report, apiKey = process.env.OPENAI_A
     return {
       mode: 'offline-deterministic',
       plan,
-      note: 'Set OPENAI_API_KEY to enable live OpenAI Codex patch generation.'
+      note: 'Set OPENAI_API_KEY to enable live OpenAI-generated patch suggestions.'
     };
   }
 

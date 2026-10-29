@@ -1,9 +1,10 @@
 # PushDiag OSS
 
-**Zero-Dependency End-to-End Web Push & PWA Diagnostics Engine, VAPID Cryptographic Auditor, Service Worker Analyzer, and iOS/Android Browser Inspector.**
+**Zero-dependency, local-first Web Push & PWA diagnostic toolkit for VAPID, service workers, manifests, and browser capability snapshots.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-10b981.svg)](./LICENSE)
 [![Node.js >= 20](https://img.shields.io/badge/node-%3E%3D20.0.0-3b82f6.svg)](https://nodejs.org)
+[![CI](https://github.com/yazedf4/pushdiag-oss/actions/workflows/ci.yml/badge.svg)](https://github.com/yazedf4/pushdiag-oss/actions/workflows/ci.yml)
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](./package.json)
 
 ---
@@ -18,7 +19,7 @@ Existing Web Push libraries (such as `web-push`) focus on **sending** notificati
 4. **RFC 8292 VAPID Cryptographic Layer**: Base64 vs. Base64URL padding errors, mismatched P-256 public/private keypairs, expired JWTs, or `aud` origin mismatches (`401` / `403`).
 5. **RFC 8030 / RFC 8291 Push Service HTTP Layer**: Misinterpreting `201 Created` as device display, failing to prune `410 Gone` subscriptions, or missing mandatory `TTL` and `aes128gcm` headers.
 
-**PushDiag OSS** diagnoses all five layers locally with **zero external npm dependencies**, making it fast, auditable, and ready for both local development and CI/CD pipelines.
+**PushDiag OSS** performs local static checks and optional browser capability snapshots with **zero external npm dependencies**. It does **not** send push notifications, independently verify their delivery, or perform a complete end-to-end delivery test.
 
 ---
 
@@ -27,7 +28,7 @@ Existing Web Push libraries (such as `web-push`) focus on **sending** notificati
 Requires **Node.js 20+**. No `npm install` of third-party packages is needed!
 
 ```bash
-# 1. Run the full test suite (10/10 unit & cryptographic tests)
+# 1. Run the automated test suite
 npm test
 
 # 2. Run a full-stack project audit (Manifest + Service Worker + Capabilities)
@@ -58,6 +59,7 @@ Mathematically verifies via `node:crypto` (`prime256v1`) that your private scala
 ```bash
 node src/cli.js vapid --public-key <BASE64URL_PUB> --private-key <BASE64URL_PRIV> --subject mailto:admin@domain.com
 node src/cli.js jwt --token "vapid t=eyJ..., k=BEl..." --endpoint "https://web.push.apple.com/QH123"
+# For a bare JWT, also provide --public-key <BASE64URL_PUB> to verify its signature
 ```
 
 ### 3. Web App Manifest iOS & Android Auditor (`pushdiag manifest`)
@@ -117,3 +119,48 @@ console.log(report.summary); // { passed: 9, warnings: 0, failed: 0, total: 9 }
 ## Maintainer & License
 
 Created and maintained by **[yazedf4](https://github.com/yazedf4)** under the [MIT License](./LICENSE).
+
+
+## Trust and verification boundaries
+
+- `doctor` audits project files. It **never** assumes a real browser supports Web Push when no capability snapshot exists.
+- The `jwt` command checks ES256 signatures **only** when a public VAPID key is supplied (or included in `vapid t=..., k=...`). Without the key, it reports an unverified signature and `valid: false`.
+- HTTP 201/202 from a push service confirms acceptance, **not** display on the recipient's device. This toolkit does not independently verify delivery.
+- Static service worker inspection is heuristic, not an AST parser or runtime execution proof.
+- `serve` is bound to `127.0.0.1`, with cross-origin requests disabled. Do not expose it to a public network or reverse proxy.
+- Never paste a private VAPID key, JWT, or subscription endpoint into an issue or publicly shared report.
+
+## Reproducible local demonstrations
+
+```bash
+# No capability file present: static checks only, with explicit inputs
+node src/cli.js doctor --project ./examples --markdown
+# Fail fast on a deliberately broken iOS PWA snapshot
+node src/cli.js check --input ./examples/ios-broken-pwa.json --strict
+# Run on an actual PWA's local public/ tree
+node src/cli.js doctor --project /path/to/your/pwa --strict
+```
+
+See [security policy](./SECURITY.md) and [contribution guide](./CONTRIBUTING.md). No real-world adoption or cross-device notification delivery is claimed without published evidence.
+
+## Use in GitHub Actions (no npm registry required)
+
+PushDiag can also be called as a composite action from a PWA repository:
+
+```yaml
+name: PWA diagnostics
+on: [push, pull_request]
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: yazedf4/pushdiag-oss@main
+        with:
+          project: '.'
+          strict: 'true'
+```
+
+For production automation, **pin the action to a reviewed commit SHA**, not `@main`. The action only reads local files and posts a Markdown audit to the workflow run summary. It never sends Web Push messages.
+
+See [validation scope](./docs/VALIDATION_SCOPE.md) and [maintainer roadmap](./docs/MAINTAINER_ROADMAP.md).

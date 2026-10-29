@@ -26,3 +26,9 @@ jobs:
 
       - name: Run Self-Audit Doctor on Examples
         run: node src/cli.js doctor --project ./examples --strict
+
+      - name: Exercise composite GitHub Action on examples
+        uses: ./
+        with:
+          project: ./examples
+          strict: 'true'

@@ -1,5 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
+import http from 'node:http';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { createDiagnosticServer } from '../src/server.js';
 import {
   diagnose,
   generateVapidKeys,
@@ -89,7 +96,10 @@ test('inspectVapidJwt validates ES256 header, audience origin, and expiration wi
     endpoint: 'https://fcm.googleapis.com/fcm/send/abc',
     nowEpochSeconds: now
   });
-  assert.equal(res.valid, true);
+  // A forged '.sig123' token can have plausible claims but is NOT valid.
+  assert.equal(res.valid, false);
+  assert.equal(res.signatureVerified, false);
+  assert.ok(res.checks.some(c => c.id === 'jwt-signature' && c.status === 'fail'));
 
   const mismatchRes = inspectVapidJwt({
     token: fakeToken,
@@ -169,4 +179,121 @@ test('getBrowserProbeScript generates executable self-contained probe', () => {
   const script = getBrowserProbeScript({ postbackUrl: 'http://localhost:3400/api/diagnose' });
   assert.match(script, /runPushDiagBrowserProbe/);
   assert.match(script, /http:\/\/localhost:3400\/api\/diagnose/);
+});
+
+function signedVapidJwt({ now = 1750000000, audience = 'https://fcm.googleapis.com', payloadPatch = {} } = {}) {
+  const keys = generateVapidKeys();
+  const raw = Buffer.from(keys.publicKey, 'base64url');
+  const signer = crypto.createPrivateKey({
+    key: {
+      kty: 'EC', crv: 'P-256',
+      x: raw.subarray(1, 33).toString('base64url'),
+      y: raw.subarray(33, 65).toString('base64url'),
+      d: keys.privateKey
+    },
+    format: 'jwk'
+  });
+  const header = Buffer.from(JSON.stringify({ typ: 'JWT', alg: 'ES256' })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({ aud: audience, exp: now + 3600, sub: 'mailto:owner@example.org', ...payloadPatch })).toString('base64url');
+  const input = `${header}.${payload}`;
+  const signature = crypto.sign('sha256', Buffer.from(input), { key: signer, dsaEncoding: 'ieee-p1363' }).toString('base64url');
+  return { jwt: `${input}.${signature}`, keys };
+}
+
+test('real ES256 VAPID signature is verified and tampering is rejected', () => {
+  const now = 1750000000;
+  const { jwt, keys } = signedVapidJwt({ now });
+  const endpoint = 'https://fcm.googleapis.com/fcm/send/test';
+  const accepted = inspectVapidJwt({ token: `vapid t=${jwt}, k=${keys.publicKey}`, endpoint, nowEpochSeconds: now });
+  assert.equal(accepted.valid, true);
+  assert.equal(accepted.signatureVerified, true);
+  assert.ok(accepted.checks.some(c => c.id === 'jwt-signature' && c.status === 'pass'));
+
+  const [h, p, sig] = jwt.split('.');
+  const modifiedPayload = JSON.parse(Buffer.from(p, 'base64url').toString());
+  modifiedPayload.exp += 600;
+  const altered = `${h}.${Buffer.from(JSON.stringify(modifiedPayload)).toString('base64url')}.${sig}`;
+  const reject = inspectVapidJwt({ token: altered, publicKey: keys.publicKey, endpoint, nowEpochSeconds: now });
+  assert.equal(reject.valid, false);
+  assert.equal(reject.signatureVerified, false);
+  assert.ok(reject.checks.some(c => c.id === 'jwt-signature' && c.status === 'fail'));
+  const wrongKey = generateVapidKeys();
+  assert.equal(inspectVapidJwt({ token: jwt, publicKey: wrongKey.publicKey, nowEpochSeconds: now }).valid, false);
+});
+
+test('VAPID signature validity never bypasses expiration and audience checks', () => {
+  const now = 1750000000;
+  const { jwt, keys } = signedVapidJwt({ now });
+  const wrongAudience = inspectVapidJwt({ token: jwt, publicKey: keys.publicKey, endpoint: 'https://web.push.apple.com/id', nowEpochSeconds: now });
+  assert.equal(wrongAudience.signatureVerified, true);
+  assert.equal(wrongAudience.valid, false);
+  const expired = inspectVapidJwt({ token: jwt, publicKey: keys.publicKey, nowEpochSeconds: now + 4000 });
+  assert.equal(expired.signatureVerified, true);
+  assert.equal(expired.valid, false);
+  const missingKey = inspectVapidJwt({ token: jwt, nowEpochSeconds: now });
+  assert.equal(missingKey.valid, false);
+  assert.equal(missingKey.summary.warnings, 1);
+});
+
+test('doctor discovers common public/ manifest and SW and never invents capability passes', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'pushdiag-fixture-'));
+  try {
+    await mkdir(path.join(dir, 'public'));
+    await writeFile(path.join(dir, 'public', 'manifest.webmanifest'), JSON.stringify({
+      name: 'Fixture', start_url: '/', display: 'standalone',
+      icons: [{ sizes: '192x192' }, { sizes: '512x512' }]
+    }));
+    await writeFile(path.join(dir, 'public', 'sw.js'), `self.addEventListener('push', e => {
+      e.waitUntil(self.registration.showNotification('Test'));
+    });`);
+    const out = execFileSync(process.execPath, ['src/cli.js', 'doctor', '--project', dir], { cwd: process.cwd(), encoding: 'utf8' });
+    const report = JSON.parse(out);
+    assert.ok(report.checks.some(c => c.id === 'manifest-display-ios'));
+    assert.ok(report.checks.some(c => c.id === 'sw-push-listener'));
+    assert.equal(report.checks.some(c => c.id === 'secure-context'), false);
+    assert.match(report.disclaimer, /not tested/);
+    const missing = await mkdtemp(path.join(tmpdir(), 'pushdiag-empty-'));
+    try {
+      const result = spawnSync(process.execPath, ['src/cli.js', 'doctor', '--project', missing], { cwd: process.cwd(), encoding: 'utf8' });
+      assert.equal(result.status, 2);
+      assert.match(result.stderr, /No manifest/);
+    } finally { await rm(missing, { recursive: true, force: true }); }
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('local diagnostic server serves UI and rejects cross-origin and hostile Host requests', async () => {
+  const server = createDiagnosticServer();
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const { port } = server.address();
+    const root = `http://127.0.0.1:${port}`;
+    const home = await fetch(root);
+    assert.equal(home.status, 200);
+    assert.match(await home.text(), /PushDiag OSS/);
+    assert.equal(home.headers.get('access-control-allow-origin'), null);
+    assert.equal(home.headers.get('cache-control'), 'no-store');
+    assert.equal((await fetch(root + '/api/health')).status, 200);
+    assert.equal((await fetch(root + '/api/vapid/generate')).status, 404);
+    const crossSite = await fetch(root + '/api/vapid/generate', {
+      method: 'POST', headers: { Origin: 'https://attacker.example' }
+    });
+    assert.equal(crossSite.status, 403);
+    const hostileStatus = await new Promise((resolve, reject) => {
+      http.get({ hostname: '127.0.0.1', port, path: '/api/health', headers: { Host: 'attacker.example' } },
+        response => { response.resume(); resolve(response.statusCode); }).on('error', reject);
+    });
+    assert.equal(hostileStatus, 403);
+    const generated = await fetch(root + '/api/vapid/generate', {
+      method: 'POST', headers: { Origin: root }
+    });
+    assert.equal(generated.status, 200);
+    assert.ok((await generated.json()).privateKey);
+    const oversized = await fetch(root + '/api/diagnose', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: 'X'.repeat(280000) })
+    });
+    assert.equal(oversized.status, 413);
+    const wrongType = await fetch(root + '/api/diagnose', { method: 'POST', body: 'hello' });
+    assert.equal(wrongType.status, 415);
+  } finally { await new Promise(resolve => server.close(resolve)); }
 });
